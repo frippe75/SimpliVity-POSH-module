@@ -172,15 +172,24 @@ function Invoke-OmnistackREST {
         [parameter(Mandatory = $True)]
         [ValidateNotNullOrEmpty()]
         [System.Object]$uri,
-        [System.Collections.IDictionary]$headers,
+        [System.Collections.IDictionary]$header,
         [string]$Method,
         [parameter(Mandatory = $false)]
         [System.object]$body
     )
 
+    $headers = @{}
+    $headers.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
+    $headers.Add("Accept", "application/json")
+
+    # Allow added headers to be passed 
+    if ($header) {
+	$headers.Add($header)
+    }
+
     try {
         # Invoke REST API method
-        $local_response = Invoke-RestMethod -Uri $uri -Headers $headers -Body $body -Method $Method
+        $local_response = Invoke-RestMethod -Uri $($Global:OmniStackConnection.Server) + $uri -Headers $headers -Body $body -Method $Method
 	} 
 	catch {
         if ($_.Exception.Message -match "401") {   
@@ -307,16 +316,13 @@ function Get-OmnistackCluster {
         $ShowOption = "?show_optional_fields=false"
     }
     if ($ClusterID.length -gt 1) {
-        $uri = $($Global:OmniStackConnection.Server) + "/api/omnistack_clusters/" + "$ClusterID"
+        $uri = "/api/omnistack_clusters/" + "$ClusterID"
     }
     else {
-        $uri = $($Global:OmniStackConnection.Server) + "/api/omnistack_clusters" + "$ShowOption"
+        $uri = "/api/omnistack_clusters" + "$ShowOption"
     }
-    $header = @{}
-    $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-    $header.Add("Accept", "application/json")
     $body = $null
-    $response = Invoke-OmnistackREST -uri $uri -headers $header -body $body -Method Get
+    $response = Invoke-OmnistackREST -uri $uri -body $body -Method Get
     $response
 }
 
@@ -358,14 +364,12 @@ function Get-OmniStackVM {
     )
 	
     if ([string]::IsNullOrEmpty($VMid)) {
-        $uri = $($Global:OmniStackConnection.Server) + "/api/virtual_machines"
+        $uri = "/api/virtual_machines"
     }
     else {
-        $uri = $($Global:OmniStackConnection.Server) + "/api/virtual_machines/" + $VMid
+        $uri = "/api/virtual_machines/" + $VMid
     }
-    $header = @{}
-    $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-    $header.Add("Accept", "application/json")
+
     $body = @{}
     if ($PSBoundParameters.ContainsKey("ShowOptionalFields")) {
         $body.Add("show_optional_fields", "true")
@@ -377,7 +381,7 @@ function Get-OmniStackVM {
     $body.Add("limit", $VMListLimit)
     $body.Add("offset", $VMListOffset)
     $body.Add("datastore_id", $DSid)
-    $response = Invoke-OmnistackREST -uri $uri -headers $header -body $body -Method Get
+    $response = Invoke-OmnistackREST -uri $uri -body $body -Method Get
     $response
 }
 
@@ -403,16 +407,12 @@ function Copy-OmniStackVM {
         [string]$Name
     )
 
-    $uri = $($Global:OmniStackConnection.Server) + "/api/virtual_machines/" + $($VM.ID) + "/clone"
-    $header = @{}
-    $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-    $header.Add("Accept", "application/json")
-    $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+    $uri = "/api/virtual_machines/" + $($VM.ID) + "/clone"
     $body = @{}
     $body.Add("app_consistent", "false")
     $body.Add("virtual_machine_name", "$Name")
     $body = $body | ConvertTo-Json
-    $response = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+    $response = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
     return $response
 }
 
@@ -444,16 +444,12 @@ function Move-OmniStackVM {
     $DestinationDSid = (Get-OmniStackDatastore).datastores | Where-Object {$_.Name -eq $DestinationDatastore} | 
         Select-Object -ExpandProperty id
 
-    $uri = $($Global:OmniStackConnection.Server) + "/api/virtual_machines/" + $($VM.ID) + "/move"
-    $header = @{}
-    $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-    $header.Add("Accept", "application/json")
-    $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+    $uri = "/api/virtual_machines/" + $($VM.ID) + "/move"
     $body = @{}
     $body.Add("virtual_machine_name", "$MovedVMName")
     $body.Add("destination_datastore_id", "$DestinationDSid")
     $body = $body | ConvertTo-Json
-    $response = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+    $response = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
     return $response
 }
 
@@ -479,15 +475,11 @@ function Set-OmniStackVMPolicy {
         [string]$PolicyId
     )
 
-    $uri = $($Global:OmniStackConnection.Server) + "/api/virtual_machines/" + $($VM.ID) + "/set_policy"
-    $header = @{}
-    $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-    $header.Add("Accept", "application/json")
-    $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
-    $body = @{}
+    $uri = "/api/virtual_machines/" + $($VM.ID) + "/set_policy"
+       $body = @{}
     $body.Add("policy_id", "$PolicyId")
     $body = $body | ConvertTo-Json
-    $response = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+    $response = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
     return $response
 }
 <#
@@ -511,18 +503,15 @@ function Get-OmniStackDatastore {
 	
     process {
         if ([string]::IsNullOrEmpty($DataStoreID)) {
-            $uri = $($Global:OmniStackConnection.Server) + "/api/datastores"
+            $uri = "/api/datastores"
         }
         else {
-            $uri = $($Global:OmniStackConnection.Server) + "/api/datastores/" + $DataStoreID
+            $uri = "/api/datastores/" + $DataStoreID
         }
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
         $body = @{}
         $body.Add("limit", $DSListLimit)
         $body.Add("offset", $DSListOffset)
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Get
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Get
         return $result
     }
 }
@@ -538,18 +527,14 @@ function New-OmnistackDatastore {
     )
 	
     process {
-        $uri = $($Global:OmniStackConnection.Server) + "/api/datastores"
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/datastores"
         $body = @{}
         $body.Add("name", "$DSname")
         $body.Add("omnistack_cluster_id", "$ClusterId")
         $body.Add("policy_id", "$PolicyId")
         $body.Add("size", "$DSsize")
-        $body = $body | convertto-json
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+        $body = $body | ConvertTo-Json
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
         return $result
     }
 }
@@ -562,12 +547,9 @@ function Remove-OmnistackDatastore {
     )
 	
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/datastores/" + $DatastoreID
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
+        $uri = "/api/datastores/" + $DatastoreID
         $body = @{}
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Delete
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Delete
         return $result	
     }
 }
@@ -583,15 +565,11 @@ function Resize-OmnistackDatastore {
 	
     process {
         $SizeString = [string] $DSsize
-        $uri = $($Global:OmnistackConnection.Server) + "/api/datastores/" + $DatastoreID + "/resize"
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/datastores/" + $DatastoreID + "/resize"
         $body = @{}
         $body.Add("size", "$SizeString")
         $body = $body | ConvertTo-Json
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
         return $result	
     }
 }
@@ -605,15 +583,11 @@ function Set-OmnistackDatastorePolicy {
     )
 	
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/datastores/" + $DatastoreID + "/set_policy"
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/datastores/" + $DatastoreID + "/set_policy"
         $body = @{}
         $body.Add("policy_id", "$DSpolicy")
         $body = $body | ConvertTo-Json
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
         return $result	
     }
 }
@@ -628,15 +602,11 @@ function Remove-OmnistackDatastoreShare {
 
 	)
 	process {
-		$uri = $($Global:OmnistackConnection.Server) + "/api/datastores/" + $DatastoreID + "/unshare"
-		$header = @{}
-		$header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.9+json")
-        $body = @{}
-        $body.Add("host_name", "$StandardHostName")
-        $body = $body | ConvertTo-Json
-		$result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+		$uri = "/api/datastores/" + $DatastoreID + "/unshare"
+		$body = @{}
+		$body.Add("host_name", "$StandardHostName")
+		$body = $body | ConvertTo-Json
+		$result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
 		return $result
 	}
 
@@ -644,7 +614,7 @@ function Remove-OmnistackDatastoreShare {
 
 function Set-OmnistackDatastoreShare {
 	[CmdletBinding()]
-    param(
+    	param(
         [Parameter(Mandatory = $true, Position = 1, ValueFromPipeline = $True)]
         [string]$DatastoreID,
         [Parameter(Mandatory = $true, Position = 2)]
@@ -652,15 +622,11 @@ function Set-OmnistackDatastoreShare {
 
 	)
 	process {
-		$uri = $($Global:OmnistackConnection.Server) + "/api/datastores/" + $DatastoreID + "/share"
-		$header = @{}
-		$header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.9+json")
-        $body = @{}
-        $body.Add("host_name", "$StandardHostName")
-        $body = $body | ConvertTo-Json
-		$result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+		$uri = "/api/datastores/" + $DatastoreID + "/share"
+		$body = @{}
+		$body.Add("host_name", "$StandardHostName")
+		$body = $body | ConvertTo-Json
+		$result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
 		return $result
 	}
 
@@ -673,12 +639,9 @@ function Get-OmnistackDatastoreStandardHost {
         [string]$DatastoreID
 	)
 	process {
-		$uri = $($Global:OmnistackConnection.Server) + "/api/datastores/" + $DatastoreID + "/standard_hosts"
-		$header = @{}
-		$header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-		$header.Add("Accept", "application/json")
+		$uri = "/api/datastores/" + $DatastoreID + "/standard_hosts"
 		$body = @{}
-		$result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Get
+		$result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Get
 		return $result
 	}
 
@@ -707,12 +670,9 @@ function Get-OmniStackTask {
         [psobject]$Task
     )
 
-    $uri = $($Global:OmniStackConnection.Server) + "/api/tasks/" + $($Task.ID)
-    $header = @{}
-    $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-    $header.Add("Accept", "application/json")
+    $uri = "/api/tasks/" + $($Task.ID)
     $body = @{}
-    $response = Invoke-OmnistackREST -uri $uri -header $header -body $body -Method Get
+    $response = Invoke-OmnistackREST -uri $uri -body $body -Method Get
     return $response
 }
 
@@ -738,22 +698,18 @@ function Get-OmnistackBackup {
 	
     process {
         if ([string]::IsNullOrEmpty($BackupID)) {
-            $uri = $($Global:OmniStackConnection.Server) + "/api/backups"
+            $uri = "/api/backups"
         }
         else {
-            $uri = $($Global:OmniStackConnection.Server) + "/api/backups/" + $BackupID
+            $uri = "/api/backups/" + $BackupID
         }
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/vnd.simplivity.v1.1+json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.1+json")
         $body = @{}
         $body.Add("limit", $BackupLimit)
         $body.Add("offset", $BackupOffset)
         if (-not [string]::IsNullOrEmpty($VMid)) {
             $body.Add("virtual_machine_id", $VMid)
         }
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Get
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Get
         return $result	
     }
 }
@@ -765,13 +721,9 @@ function Remove-OmnistackBackupLegacy {
         [string]$BackupID
     )
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/backups/" + $BackupID
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.1+json")
-        $header.Add("Accept", "application/json")
+        $uri = "/api/backups/" + $BackupID
         $body = @{}
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method 'Delete'
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method 'Delete'
         return $result	
     }
 }
@@ -783,15 +735,11 @@ function Remove-OmnistackBackup {
         [String[]]$BackupIDs
     )
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/backups/delete"
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.7+json")
-        $header.Add("Accept", "application/json")
+        $uri = "/api/backups/delete"
         $body = @{}
         $body.Add("backup_id", $BackupIDs)
         $body = ConvertTo-Json -InputObject $body
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method POST
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method POST
         return $result	
     }
 }
@@ -815,16 +763,12 @@ function Restore-OmnistackBackup {
         else {
             $originalKey = "?restore_original=FALSE"
         }
-        $uri = $($Global:OmnistackConnection.Server) + "/api/backups/" + $BackupID + "/restore" + $originalKey
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.7+json")
-        $header.Add("Accept", "application/vnd.simplivity.v1.7+json")
+        $uri = "/api/backups/" + $BackupID + "/restore" + $originalKey
         $body = @{}
         $body.Add("virtual_machine_name", $RestoredVMname)
         $body.Add("datastore_id", $DataStoreID)
         $body = ConvertTo-Json -InputObject $body
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method POST
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method POST
         return $result	
     }
 
@@ -848,15 +792,11 @@ function Get-OmnistackBackupPolicy {
     )
     process {
         if ([string]::IsNullOrEmpty($policyId)) {
-            $uri = $($Global:OmnistackConnection.Server) + "/api/policies"
+            $uri = "/api/policies"
         }
         else {
-            $uri = $($Global:OmnistackConnection.Server) + "/api/policies/" + $policyId
+            $uri = "/api/policies/" + $policyId
         }
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
         $body = @{}
         $body.Add("limit", $PolicyLimit)
         $body.Add("offset", $PolicyOffset)
@@ -865,7 +805,7 @@ function Get-OmnistackBackupPolicy {
             $body.Add("sort", "name")
             $body.Add("order", "ascending")
         }
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Get
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Get
         return $result
     }
 }
@@ -879,13 +819,9 @@ function Get-OmnistackPolicyRule() {
     )
 	
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/policies/" + $policyid + "/rules/" + $ruleID
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.1+json")
+        $uri = "/api/policies/" + $policyid + "/rules/" + $ruleID
         $body = @{}
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Get
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Get
         $result
     }
 }
@@ -898,13 +834,9 @@ function Get-OmnistackPolicyDatastore() {
     )
 	
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/policies/" + $policyid + "/datastores"
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/policies/" + $policyid + "/datastores"
         $body = @{}
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Get
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Get
         $result
     }
 }
@@ -917,13 +849,9 @@ function Get-OmnistackPolicyVM() {
     )
 	
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/policies/" + $policyid + "/virtual_machines"
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/policies/" + $policyid + "/virtual_machines"
         $body = @{}
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Get
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Get
         $result
     }
 }
@@ -952,15 +880,11 @@ General notes
     )
 
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/policies/"
-        $header = @{}
-       	$header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/policies/"
         $body = @{}
         $body.Add("name", "$policyName")
         $body = $body | ConvertTo-Json
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
         $result
     }
 }
@@ -1023,11 +947,7 @@ General notes
     )
 
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/policies/" + $policyid + "/rules?replace_all_rules=" + $Replace
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1.1+json")
+        $uri = "/api/policies/" + $policyid + "/rules?replace_all_rules=" + $Replace
         $body = @{}
         $body.Add("application_consistent", $AppConsistent)
         $body.Add("days", "$Days")
@@ -1037,7 +957,7 @@ General notes
         $body.Add("retention", $Retention)
         $body.Add("start_time", "$StartTime")
         $body = ConvertTo-Json -InputObject @($body)
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Post
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Post
         $result
     }
 }
@@ -1051,13 +971,9 @@ function Remove-OmnistackRule() {
     )
 	
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/policies/" + $policyid + "/rules/" + $ruleid
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/policies/" + $policyid + "/rules/" + $ruleid
         $body = @{}
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Delete
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Delete
         return $result
     }
 }
@@ -1069,66 +985,10 @@ function Remove-OmnistackPolicy() {
     )
 		
     process {
-        $uri = $($Global:OmnistackConnection.Server) + "/api/policies/" + $policyid 
-        $header = @{}
-        $header.Add("Authorization", "Bearer $($Global:OmniStackConnection.Token)")
-        $header.Add("Accept", "application/json")
-        $header.Add("Content-Type", "application/vnd.simplivity.v1+json")
+        $uri = "/api/policies/" + $policyid 
         $body = @{}
-        $result = Invoke-OmnistackREST -Uri $uri -Headers $header -Body $body -Method Delete
+        $result = Invoke-OmnistackREST -Uri $uri -Body $body -Method Delete
         return $result			
 
     }
 }
-# SIG # Begin signature block
-# MIIJPQYJKoZIhvcNAQcCoIIJLjCCCSoCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
-# gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUKppu22LeJoDXmI2OGmQdi+m+
-# tvWgggagMIIGnDCCBISgAwIBAgITVgAAADaXTUTMUUrpWQAAAAAANjANBgkqhkiG
-# 9w0BAQsFADBPMRUwEwYKCZImiZPyLGQBGRYFbG9jYWwxFTATBgoJkiaJk/IsZAEZ
-# FgVjbG91ZDEfMB0GA1UEAxMWY2xvdWQtQ1RTLUNBLVNFUlZFUi1DQTAeFw0xODEw
-# MjUxODE2MDJaFw0xOTEwMjUxODE2MDJaMFMxFTATBgoJkiaJk/IsZAEZFgVsb2Nh
-# bDEVMBMGCgmSJomT8ixkARkWBWNsb3VkMQ4wDAYDVQQDEwVVc2VyczETMBEGA1UE
-# AxMKUm9uIERoYXJtYTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMU1
-# oVlSqYnQoHF+8Ef+Lco4kANoiBm8+g0HOJ60VJBWgLUsQNvk5cqMi67oywfUhv+E
-# jogxDz99i4g/xxbQlvTfW2ao28D2eZLGGP898GCewORouWFAFkbHVLpFoHxiewtI
-# IDbwooqClvnGlXBT1/+iwvggkPgBbnxrHsjEUl4YnXwt/bPrcQXJeCutYg1owKCr
-# UU8SIpIt8+aYTB5LR3EwsKtGeqlImiSsm90g8jgaHeP8ur4LpLi3QVPPcFEPASIK
-# rMer5OJOojvCMaq76UclFneZhQq8HccjBMNkz0WmAuvD7bkwHP4qNSWWywW2Fesu
-# 7IHcLxx1Gpp9AmmyHrcCAwEAAaOCAmswggJnMCUGCSsGAQQBgjcUAgQYHhYAQwBv
-# AGQAZQBTAGkAZwBuAGkAbgBnMBMGA1UdJQQMMAoGCCsGAQUFBwMDMA4GA1UdDwEB
-# /wQEAwIHgDAxBgNVHREEKjAooCYGCisGAQQBgjcUAgOgGAwWUm9uLkRoYXJtYUBj
-# bG91ZC5sb2NhbDAdBgNVHQ4EFgQUuAxb8cFuCqBSebELRTaOH/ZN+0gwHwYDVR0j
-# BBgwFoAUWpc9pur9NakkruCgFCflMzkEFwUwgdoGA1UdHwSB0jCBzzCBzKCByaCB
-# xoaBw2xkYXA6Ly8vQ049Y2xvdWQtQ1RTLUNBLVNFUlZFUi1DQSxDTj1DVFMtQ0Et
-# U2VydmVyLENOPUNEUCxDTj1QdWJsaWMlMjBLZXklMjBTZXJ2aWNlcyxDTj1TZXJ2
-# aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPWNsb3VkLERDPWxvY2FsP2NlcnRpZmlj
-# YXRlUmV2b2NhdGlvbkxpc3Q/YmFzZT9vYmplY3RDbGFzcz1jUkxEaXN0cmlidXRp
-# b25Qb2ludDCByAYIKwYBBQUHAQEEgbswgbgwgbUGCCsGAQUFBzAChoGobGRhcDov
-# Ly9DTj1jbG91ZC1DVFMtQ0EtU0VSVkVSLUNBLENOPUFJQSxDTj1QdWJsaWMlMjBL
-# ZXklMjBTZXJ2aWNlcyxDTj1TZXJ2aWNlcyxDTj1Db25maWd1cmF0aW9uLERDPWNs
-# b3VkLERDPWxvY2FsP2NBQ2VydGlmaWNhdGU/YmFzZT9vYmplY3RDbGFzcz1jZXJ0
-# aWZpY2F0aW9uQXV0aG9yaXR5MA0GCSqGSIb3DQEBCwUAA4ICAQAoYn7MWzU9dAA2
-# 5/Pat1oh6VDR3nJG3Zt8q7nEWCxUZBqBO3q7I1GfYawZds/ODcsZzIUDDxigoYQK
-# ayiUnirDCQs+3RNAqIPl8qLMKp9djsDMd9Nd0jDPE3tc64NqCAfzTN7uw0TrH3Q/
-# VEO3BqB0PV4jlY+rLLSFXljtPxSFrud5u3O3j+K/A8FFLSdW4qgiR/S83I4+X2v5
-# ioAt5Kgivh95cg2aHmBC0cs9HhD+t6CSssOKwqJoW1VZ4Uy9cZZCqpzMU1gd2hG5
-# VBV0oJtkN3Pw6A/MvsGhTbNz9OZLirki5N9gY1QyK4nKRv99CLfzehoEu2zpmg11
-# JFxlBN6Aj47j2yTlw3YzKT803B7QuiiHAPSmKBmxZ0yQb7o+5xJ0FwDHajSuZn8G
-# mN5wgFEbqakRcFePv15DTEb2vxrVxY379fWXzc1a9PK0oWomQKzkZOics/av7W4d
-# Pb7KEBGLJ0k58B+Oq9P1Rb8kQ1g3NNLZyqao9Y9+3Ypcas6qlvOfLNA99cE5yc6Z
-# wzdB/dKwYYIO1IX3dAAB9DEvGT5PBY64MLmSiwlZ7ZGP6lJuQgIG/2u33vHBSuVQ
-# Nf/ww5ComRqstOedptYRU1HNdjy8wQQeI5p0o3/YtJlT/TUC1GBQtHOpdLRCMz45
-# B/fG1cUE+cpEZi1q5apGGtk4yXmiZzGCAgcwggIDAgEBMGYwTzEVMBMGCgmSJomT
-# 8ixkARkWBWxvY2FsMRUwEwYKCZImiZPyLGQBGRYFY2xvdWQxHzAdBgNVBAMTFmNs
-# b3VkLUNUUy1DQS1TRVJWRVItQ0ECE1YAAAA2l01EzFFK6VkAAAAAADYwCQYFKw4D
-# AhoFAKB4MBgGCisGAQQBgjcCAQwxCjAIoAKAAKECgAAwGQYJKoZIhvcNAQkDMQwG
-# CisGAQQBgjcCAQQwHAYKKwYBBAGCNwIBCzEOMAwGCisGAQQBgjcCARUwIwYJKoZI
-# hvcNAQkEMRYEFMJMOTX0q6XD5aoNGgYo98uFmb9KMA0GCSqGSIb3DQEBAQUABIIB
-# AI6KZtfGHrmYnm+vpfuwLUpq27gO2lS8z4+iLc/qyHJSo5yE4c12d2FjPIa9FCAq
-# 1pdY+/ZhJrnPtKJ/LH/syrmRZK+TNK6DRThfrqDHeNy1agiHYF5BVcfCYYRHTVuR
-# xxx29zSIW56ks+Hr+bHM0J9nsLo7u9L7ZrfBIsB2FbqkbSwv+kRJ0vLef6g8HNE7
-# kPaeVUtjfiJlNjJBuBH/CCy6RmO7RmukLrHH0LPBB8tLrFIMG4CEtcGfZVpW1YQG
-# Bbby5ZWJ0c/G7igFpsp+3F94CRwtlhicoB+7NPERi9CEZEL4MsfSCXGqusOyXl6a
-# ct2NLf92wIrEmAm5DvNhx2I=
-# SIG # End signature block
